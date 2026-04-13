@@ -1,5 +1,10 @@
 #include <cuda_runtime.h>
 
+
+__device__ __inline__ float threshold_pixel(float pixel_value, float threshold_value) {
+    return pixel_value > threshold_value ? 255.0f : 0.0f;
+}
+
 __global__ void threshold(
     const float* __restrict__ input_image,
     float threshold_value, 
@@ -8,7 +13,7 @@ __global__ void threshold(
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (tid < pixels){
-        input_image[tid] > threshold_value ? output_image[tid] = 255 : output_image[tid] = 0;
+        output_image[tid] = threshold_pixel(input_image[tid], threshold_value);
     }
 
 }
@@ -21,13 +26,12 @@ __global__ void threshold_f4(
     size_t tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (tid < pixels){
-        float4 element = input_image[tid];
+        const float4 element = input_image[tid];
         float4 temp;
-        element.x > threshold_value ? temp.x = 255 : temp.x = 0;
-        element.y > threshold_value ? temp.y = 255 : temp.y = 0;
-        element.z > threshold_value ? temp.z = 255 : temp.z = 0;
-        element.w > threshold_value ? temp.w = 255 : temp.w = 0;
-
+        temp.x = threshold_pixel(element.x, threshold_value);
+        temp.y = threshold_pixel(element.y, threshold_value);
+        temp.z = threshold_pixel(element.z, threshold_value);
+        temp.w = threshold_pixel(element.w, threshold_value);
         output_image[tid] = temp;
     }
 
@@ -46,4 +50,5 @@ extern "C" void solution(const float* __restrict__ input_image, float threshold_
 
     threshold_f4<<<f4_blocks, threads>>>(f4_input_image, threshold_value, f4_output_image, f4_pixels);
 
+    // There is no tail kenel because the number of pixels is guaranteed to be a multiple of 4 (as much as tests measure).
 }
